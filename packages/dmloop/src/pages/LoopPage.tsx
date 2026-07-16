@@ -4,7 +4,7 @@ import LoopButton from "../ui/LoopButton";
 import {
   ClipboardList, Briefcase, Bot, Users, Settings,
   ChevronDown, Check, Plus, SquarePen, FolderPlus,
-  Zap, CircleUserRound,
+  Zap, CircleUserRound, Link2Off,
 } from "lucide-react";
 import { useI18n, WKApp, getPinyin } from "@octo/base";
 import type { Workspace } from "../api/types";
@@ -20,6 +20,8 @@ import AgentPage from "./AgentPage";
 import SquadPage from "./SquadPage";
 import AutomationPage from "./AutomationPage";
 import SettingsPage from "./SettingsPage";
+import IssueDetailPage from "../panel/IssueDetailPage";
+import type { LoopDeepLink } from "./loopDeepLink";
 import "./loop.css";
 import "../ui/loopControls.css";
 
@@ -47,7 +49,11 @@ const WORKSPACE_TABS: { key: TabKey; icon: React.ReactNode }[] = [
 ];
 const SETTINGS_TAB: { key: TabKey; icon: React.ReactNode } = { key: "settings", icon: <Settings size={16} /> };
 
-export default function LoopPage() {
+export interface LoopPageProps {
+  initialDeepLink?: LoopDeepLink;
+}
+
+export default function LoopPage({ initialDeepLink = { kind: "none" } }: LoopPageProps) {
   const { t } = useI18n();
   const [tab, setTab] = useState<TabKey>("issue");
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -98,6 +104,20 @@ export default function LoopPage() {
     );
   };
 
+  const showInvalidDeepLink = () => {
+    WKApp.routeRight.replaceToRoot(
+      <main className="loop-page" aria-labelledby="loop-invalid-link-title">
+        <div className="loop-empty">
+          <Link2Off size={44} className="loop-empty__icon" aria-hidden="true" />
+          <div id="loop-invalid-link-title" className="loop-empty__title">
+            {t("loop.deepLink.invalidTitle")}
+          </div>
+          <div className="loop-empty__desc">{t("loop.deepLink.invalidDescription")}</div>
+        </div>
+      </main>
+    );
+  };
+
   const applyWorkspace = (ws: Workspace | null, list: Workspace[]) => {
     if (ws) {
       setWorkspaceContext(ws.slug, ws.id, ws.name);
@@ -119,13 +139,40 @@ export default function LoopPage() {
   };
 
   useEffect(() => {
+    if (initialDeepLink.kind === "invalid") {
+      setLoaded(true);
+      showInvalidDeepLink();
+      return;
+    }
     listWorkspaces()
       .then((list) => {
         setLoaded(true);
+        if (initialDeepLink.kind === "valid") {
+          const targetWorkspace = findWs(list, initialDeepLink.workspaceId);
+          if (!targetWorkspace) {
+            setWorkspaces(list);
+            showInvalidDeepLink();
+            return;
+          }
+          setTab("issue");
+          applyWorkspace(targetWorkspace, list);
+          WKApp.routeRight.push(
+            <IssueDetailPage
+              key={initialDeepLink.issueId}
+              issueId={initialDeepLink.issueId}
+              onChanged={() => WKApp.mittBus.emit("wk:loop-issues-refresh")}
+            />
+          );
+          return;
+        }
         const first = findWs(list, currentWorkspaceId()) ?? list[0] ?? null;
         applyWorkspace(first, list);
       })
-      .catch(() => { setLoaded(true); showEmptyGuide(); });
+      .catch(() => {
+        setLoaded(true);
+        if (initialDeepLink.kind === "valid") showInvalidDeepLink();
+        else showEmptyGuide();
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

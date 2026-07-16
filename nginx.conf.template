@@ -19,6 +19,7 @@ server {
         # string that the corresponding location block tests for.
         set $summary_api_url "${SUMMARY_API_URL}";
         set $matter_api_url "${MATTER_API_URL}";
+        set $loop_api_url "${LOOP_API_URL}";
 
         # Security headers
         # Prevent clickjacking attacks
@@ -99,6 +100,25 @@ server {
             client_body_buffer_size 500m;
         }
 
+        # Loop API — served by octo-multica, not octo-fleet. The browser-facing
+        # /loop/api/* namespace is rewritten to Multica's actual /api/* routes.
+        # Leaving LOOP_API_URL blank keeps deployments without Loop bootable and
+        # returns an explicit JSON 503 instead of falling through to the SPA.
+        location /loop/api/ {
+            default_type application/json;
+            if ($loop_api_url = "") {
+                return 503 '{"status":503,"msg":"Loop API is not configured"}';
+            }
+            resolver 127.0.0.11 ipv6=off valid=30s;
+            rewrite ^/loop/api/(.*)$ /api/$1 break;
+            proxy_pass  $loop_api_url;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            client_max_body_size 100m;
+        }
+
         # octo-matter API — dmworktodo and the summary matter-picker target
         # /matter/api/v1/matters/* via this prefix. Set MATTER_API_URL (e.g.
         # http://octo-matter:8080) at container start; blank yields a 503 so
@@ -135,5 +155,9 @@ server {
         location / {
             root   /usr/share/nginx/html;
             index  index.html index.htm;
+            # React owns client-side routes such as /s/:taskId and /loop.
+            # Serve the SPA entry point for browser refreshes while preserving
+            # real static assets and the API locations declared above.
+            try_files $uri $uri/ /index.html;
         }
 }

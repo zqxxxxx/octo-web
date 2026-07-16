@@ -2,6 +2,7 @@ import { negotiate } from "./guards";
 import { classifyCardSender, isTrustedCardSender } from "./senderTrust";
 import { CARD_PROFILE_OCTO_V2 } from "./types";
 import { validateCardForOcto } from "./validateCardForOcto";
+import { personalizeCardForViewer } from "./personalizeCardForViewer";
 
 /**
  * 卡片主体渲染决策（纯策略，独立于 SDK 挂载）。集中兜底，对齐服务端
@@ -46,6 +47,8 @@ export interface DecideCardInput {
   profile: string;
   cardVersion: string;
   card: Record<string, unknown>;
+  /** 当前登录用户 UID；用于服务端声明的 per-viewer 展示策略。 */
+  viewerUID?: string;
 }
 
 export function decideCardBody(input: DecideCardInput): CardDecision {
@@ -69,7 +72,7 @@ export function decideCardBody(input: DecideCardInput): CardDecision {
   // 交互（提交）仅对 bot-sender 卡开放；webhook 卡展示-only（无事件消费端）。
   return {
     kind: "card",
-    card: input.card,
+    card: personalizeCardForViewer(input.card, input.viewerUID),
     allowInteractive,
     interactive: trust === "bot",
   };

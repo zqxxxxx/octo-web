@@ -15,7 +15,9 @@ import JoinSpacePage from "../Components/JoinSpacePage";
 import JoinApprovalResult from "../Components/JoinApprovalResult";
 import { StandaloneDocPage, parseStandaloneDocId, isStandaloneDocPath, persistStandaloneReturn, consumeStandaloneReturn, withReturnSid } from "@octo/docs";
 import { adoptStoredSession, findSidForToken, clearSessionsWithToken } from "./recoverSession";
-import { isLoopCliAuthorizePath, LOOP_CLI_AUTHORIZE_PATH } from "@octo/loop";
+import { isLoopCliAuthorizePath, LOOP_CLI_AUTHORIZE_PATH, parseLoopDeepLink } from "@octo/loop";
+import { StandaloneSummaryPage, isStandaloneSummaryPath, parseStandaloneSummarySpaceId, parseStandaloneSummaryTaskId } from "@dmwork/summary";
+import { consumeAuthReturnTarget, persistAuthReturnTarget, withAuthReturnSid } from "./authReturn";
 
 interface AppLayoutState {
     showJoinSpace: boolean;
@@ -124,8 +126,20 @@ export default class AppLayout extends Component<{}, AppLayoutState> {
             const forwardDoc = getQueryParam("doc") || ""
             const forwardSpace = getQueryParam("space") || ""
             const forwardFolder = getQueryParam("folder") || ""
+            const summarySpace = isStandaloneSummaryPath(window.location.pathname)
+                ? parseStandaloneSummarySpaceId(window.location.search) || ""
+                : ""
+            const loopReturn = window.location.pathname === "/loop"
+                ? parseLoopDeepLink(window.location.search)
+                : { kind: "none" as const }
             const redirectQuery = new URLSearchParams()
             if (existingSid) redirectQuery.set("sid", existingSid)
+            if (summarySpace) redirectQuery.set("sp", summarySpace)
+            if (loopReturn.kind === "valid") {
+                redirectQuery.set("issue", loopReturn.issueId)
+                redirectQuery.set("workspace", loopReturn.workspaceId)
+                redirectQuery.set("sp", loopReturn.spaceId)
+            }
             if (forwardDoc) {
                 redirectQuery.set("doc", forwardDoc)
                 if (forwardSpace) redirectQuery.set("space", forwardSpace)
@@ -135,6 +149,12 @@ export default class AppLayout extends Component<{}, AppLayoutState> {
             const sidParam = redirectQs ? `?${redirectQs}` : ""
 
             const goMain = () => {
+                const authReturn = consumeAuthReturnTarget();
+                if (authReturn) {
+                    const sessionSid = findSidForToken(localStorage, WKApp.loginInfo.token || "");
+                    window.location.assign(withAuthReturnSid(authReturn, sessionSid))
+                    return
+                }
                 // A user who signed in from a shared /d/:docId link (local OR SSO/OIDC, where the
                 // IdP returnTo lands back on /login) has a stashed standalone target — bounce them
                 // back to that exact document instead of the app root. consumeStandaloneReturn
@@ -370,6 +390,51 @@ export default class AppLayout extends Component<{}, AppLayoutState> {
                 }
                 const cliAuthorizeComponent = WKApp.route.get(LOOP_CLI_AUTHORIZE_PATH);
                 if (cliAuthorizeComponent) return cliAuthorizeComponent;
+            }
+        }
+
+        // Server-authored Summary cards link to `/s/:taskId?sp=:spaceId`.
+        // Claim the whole namespace before the normal shell, recover a clean-tab
+        // session like the document deep link, and bind the request to the Space
+        // encoded by the trusted card. The detail page/API both use numeric task_id.
+        if (isStandaloneSummaryPath(window.location.pathname)) {
+            const taskId = parseStandaloneSummaryTaskId(window.location.pathname);
+            const spaceId = parseStandaloneSummarySpaceId(window.location.search);
+            // Malformed card targets are terminal even for anonymous visitors:
+            // do not ask them to authenticate for a route that can never bind
+            // to a trusted Space, and never let a previous Space leak through.
+            if (taskId == null || spaceId == null) {
+                return <StandaloneSummaryPage taskId={taskId} spaceId={spaceId} />;
+            }
+            if (!WKApp.loginInfo.token) {
+                WKApp.loginInfo.load();
+            }
+            if (!WKApp.loginInfo.token) {
+                recoverOctoSessionFromStorage(true);
+            }
+            if (WKApp.loginInfo.token) {
+                WKApp.shared.currentSpaceId = spaceId;
+                return <StandaloneSummaryPage taskId={taskId} spaceId={spaceId} />;
+            }
+            persistAuthReturnTarget();
+            // Anonymous visitors fall through to the in-place login screen.
+            // The validated target survives both local login and an external IdP round trip.
+        }
+
+        // Loop cards use an authenticated in-shell route, but their exact
+        // issue/workspace/Space tuple must survive the same local and SSO login
+        // flows as standalone cards. Bind Space before the Loop module issues
+        // its first workspace request; malformed tuples never overwrite it.
+        if (window.location.pathname === "/loop") {
+            const loopTarget = parseLoopDeepLink(window.location.search);
+            if (loopTarget.kind === "valid") {
+                if (!WKApp.loginInfo.token) WKApp.loginInfo.load();
+                if (!WKApp.loginInfo.token) recoverOctoSessionFromStorage(true);
+                if (WKApp.loginInfo.token) {
+                    WKApp.shared.currentSpaceId = loopTarget.spaceId;
+                } else {
+                    persistAuthReturnTarget();
+                }
             }
         }
 

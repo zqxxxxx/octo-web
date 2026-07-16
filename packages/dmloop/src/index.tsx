@@ -9,6 +9,8 @@ export {
   isLoopCliAuthorizePath,
   LOOP_CLI_AUTHORIZE_PATH,
 } from "./cliAuthorizeSession";
+export { parseLoopDeepLink } from "./pages/loopDeepLink";
+export type { LoopDeepLink } from "./pages/loopDeepLink";
 
 export * from "./api/types";
 export * as issueApi from "./api/issueApi";

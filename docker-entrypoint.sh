@@ -18,13 +18,20 @@ export SUMMARY_API_URL
 MATTER_API_URL="${MATTER_API_URL%/}"
 export MATTER_API_URL
 
+# octo-multica backend for the Loop web module. The nginx /loop/api/*
+# namespace rewrites to this service's real /api/* routes. Blank yields a
+# controlled 503 and must never fall back to the octo-fleet proxy.
+: "${LOOP_API_URL:=}"
+LOOP_API_URL="${LOOP_API_URL%/}"
+export LOOP_API_URL
+
 # Extra CSP img-src source for the object-store (minio) presign host, e.g.
 # "http://192.168.214.189:9000". Empty by default (https-only). Must match the
 # backend presign host and frontend VITE_DOCS_ASSET_HOSTS.
 : "${DOCS_ASSET_CSP_ORIGIN:=}"
 export DOCS_ASSET_CSP_ORIGIN
 
-envsubst '${API_URL} ${SUMMARY_API_URL} ${MATTER_API_URL} ${DOCS_ASSET_CSP_ORIGIN}' < /nginx.conf.template > /etc/nginx/conf.d/default.conf
+envsubst '${API_URL} ${SUMMARY_API_URL} ${MATTER_API_URL} ${LOOP_API_URL} ${DOCS_ASSET_CSP_ORIGIN}' < /nginx.conf.template > /etc/nginx/conf.d/default.conf
 
 
 exec "$@"

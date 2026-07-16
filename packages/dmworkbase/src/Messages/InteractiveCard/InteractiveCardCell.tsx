@@ -16,10 +16,7 @@ import { decideCardBody, type CardDecision } from "./renderDecision";
 import { resolveEffectiveCardContent } from "./resolveContent";
 import { copyText, openUrl } from "./renderer/actions";
 import { collectCardInputs, validateCardInputs } from "./sdk/cardInputs";
-import {
-  enhanceRenderedOctoCard,
-  renderOctoCard,
-} from "./sdk/renderOctoCard";
+import { enhanceRenderedOctoCard, renderOctoCard } from "./sdk/renderOctoCard";
 import { classifyCardSender, fetchSenderChannelInfo } from "./senderTrust";
 import "./index.css";
 
@@ -149,6 +146,7 @@ export class InteractiveCardCell extends MessageCell {
       profile: effective.profile,
       cardVersion: effective.cardVersion,
       card: effective.card,
+      viewerUID: WKApp.loginInfo.uid,
     });
     return { plain, decision };
   }

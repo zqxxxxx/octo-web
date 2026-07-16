@@ -47,4 +47,10 @@ describe('Nginx Security Headers', () => {
   it('should have HSTS header available (commented for manual enable)', () => {
     expect(nginxConfig).toContain('Strict-Transport-Security');
   });
+
+  it('should fall back to the SPA entry point for direct client-side routes', () => {
+    expect(nginxConfig).toMatch(
+      /location\s+\/\s*\{[\s\S]*?try_files\s+\$uri\s+\$uri\/\s+\/index\.html;/,
+    );
+  });
 });

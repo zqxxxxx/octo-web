@@ -18,7 +18,7 @@ export function uploadAttachment(
 
 // Fetch an attachment's bytes through the authenticated loop client. The
 // download endpoint is auth-only, so it cannot be used as a native <img>/<a>
-// src (those carry no auth headers). The loop client base is `/fleet/api/v1`,
+// src (those carry no auth headers). The loop client base is `/loop/api`,
 // which the deployment's rewrite layer (nginx in prod, the vite proxy in dev)
 // maps to the backend the same way it does for every other loop call — so this
 // relative path resolves to the attachment endpoint with auth headers attached.

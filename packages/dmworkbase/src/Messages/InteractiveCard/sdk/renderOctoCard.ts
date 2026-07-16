@@ -18,6 +18,89 @@ import { attachTableCopyButtons } from "./tableCopy";
 
 let markdownHookInstalled = false;
 
+interface CardElementVisibility {
+  type: string;
+  initiallyVisible: boolean;
+}
+
+function collectCardElementVisibility(
+  value: unknown,
+  output: Map<string, CardElementVisibility>
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectCardElementVisibility(item, output));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const node = value as Record<string, unknown>;
+  if (typeof node.id === "string" && node.id) {
+    output.set(node.id, {
+      type: typeof node.type === "string" ? node.type : "",
+      initiallyVisible: node.isVisible !== false,
+    });
+  }
+  Object.values(node).forEach((item) =>
+    collectCardElementVisibility(item, output)
+  );
+}
+
+function elementIsVisible(element: HTMLElement | null): boolean {
+  if (!element) return false;
+  return (
+    !element.hidden &&
+    element.getAttribute("aria-hidden") !== "true" &&
+    element.style.display !== "none"
+  );
+}
+
+/** Keep the SDK's visual ToggleVisibility state available to assistive tech. */
+function enhanceToggleVisibilityAccessibility(
+  card: Record<string, unknown>,
+  target: HTMLElement
+): void {
+  const visibility = new Map<string, CardElementVisibility>();
+  collectCardElementVisibility(card, visibility);
+
+  const bindings: Array<{ control: HTMLElement; stateId: string }> = [];
+
+  target.querySelectorAll<HTMLElement>("[aria-controls]").forEach((control) => {
+    const controlledIds = (control.getAttribute("aria-controls") ?? "")
+      .split(/\s+/)
+      .filter(Boolean);
+    if (controlledIds.length === 0) return;
+
+    // Prefer a content element that starts collapsed. Summary cards also
+    // toggle their expand/collapse ActionSets; using those controls as the
+    // state anchor would invert aria-expanded on the visible Collapse button.
+    const stateId =
+      controlledIds.find((id) => {
+        const entry = visibility.get(id);
+        return entry && entry.type !== "ActionSet" && !entry.initiallyVisible;
+      }) ??
+      controlledIds.find((id) => visibility.get(id)?.type !== "ActionSet") ??
+      controlledIds[0];
+
+    bindings.push({ control, stateId });
+  });
+
+  const syncAll = () => {
+    bindings.forEach(({ control, stateId }) => {
+      const stateElement =
+        Array.from(target.querySelectorAll<HTMLElement>("[id]")).find(
+          (element) => element.id === stateId
+        ) ?? null;
+      control.setAttribute(
+        "aria-expanded",
+        String(elementIsVisible(stateElement))
+      );
+    });
+  };
+  syncAll();
+  bindings.forEach(({ control }) => {
+    control.addEventListener("click", () => queueMicrotask(syncAll));
+  });
+}
+
 function ensureMarkdownHook(): void {
   if (markdownHookInstalled) return;
   AdaptiveCard.onProcessMarkdown = (text, result) => {
@@ -42,6 +125,7 @@ export interface RenderOctoCardOptions {
 export function enhanceRenderedOctoCard(options: RenderOctoCardOptions): void {
   const { card, target, tableCopyLabel, onTableCopy } = options;
   enhanceAgentProgressLayout(card, target);
+  enhanceToggleVisibilityAccessibility(card, target);
   if (tableCopyLabel && onTableCopy) {
     attachTableCopyButtons({
       card,

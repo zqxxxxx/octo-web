@@ -24,6 +24,11 @@
     "current": "Current",
     "userFallback": "User {{id}}"
   },
+  "deepLink": {
+    "invalidTitle": "This summary cannot be opened",
+    "invalidDescription": "The link is invalid or damaged. Return to Octo and open the summary from the list.",
+    "backHome": "Back to Octo"
+  },
   "action": {
     "accept": "Accept",
     "accepted": "Accepted",

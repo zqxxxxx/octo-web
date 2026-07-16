@@ -192,6 +192,10 @@
     "emptyTitle": "还没有工作区",
     "emptyDesc": "创建一个工作区开始使用回路。"
   },
+  "deepLink": {
+    "invalidTitle": "无法打开此 Loop",
+    "invalidDescription": "链接无效、目标工作区不可用，或你没有访问权限。请从最新卡片重新打开。"
+  },
   "cliAuthorize": {
     "title": "授权当前电脑",
     "description": "将当前电脑接入所选回路工作区，授权后命令行会继续完成本机设备注册。",

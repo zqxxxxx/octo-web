@@ -4,10 +4,7 @@
 // OpenUrl 动作回调、重复挂载清空旧内容。
 
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  enhanceRenderedOctoCard,
-  renderOctoCard,
-} from "../sdk/renderOctoCard";
+import { enhanceRenderedOctoCard, renderOctoCard } from "../sdk/renderOctoCard";
 import { extractTableCopyTexts } from "../sdk/tableCopy";
 
 beforeAll(() => {
@@ -111,7 +108,7 @@ describe("renderOctoCard", () => {
     target.remove();
   });
 
-  it("Action.ToggleVisibility 由 SDK 原生切换 isVisible", () => {
+  it("Action.ToggleVisibility 同步视觉状态与 aria-expanded", async () => {
     const target = mountTarget();
     const types: string[] = [];
     renderOctoCard({
@@ -139,9 +136,92 @@ describe("renderOctoCard", () => {
     });
     const details = target.querySelector<HTMLElement>("#details");
     expect(details?.style.display).toBe("none");
-    target.querySelector("button")?.click();
+    const toggle = target.querySelector<HTMLElement>("[aria-controls]");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    toggle?.click();
+    await Promise.resolve();
     expect(types).toContain("Action.ToggleVisibility");
     expect(details?.style.display).not.toBe("none");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    target.remove();
+  });
+
+  it("互斥展开/收起按钮共享最新 aria-expanded 状态", async () => {
+    const target = mountTarget();
+    renderOctoCard({
+      card: {
+        type: "AdaptiveCard",
+        version: "1.5",
+        body: [
+          {
+            type: "Container",
+            id: "preview",
+            items: [{ type: "TextBlock", text: "摘要" }],
+          },
+          {
+            type: "Container",
+            id: "full",
+            isVisible: false,
+            items: [{ type: "TextBlock", text: "全文" }],
+          },
+          {
+            type: "ActionSet",
+            id: "expand-actions",
+            actions: [
+              {
+                type: "Action.ToggleVisibility",
+                title: "展开",
+                targetElements: [
+                  "preview",
+                  "full",
+                  "expand-actions",
+                  "collapse-actions",
+                ],
+              },
+            ],
+          },
+          {
+            type: "ActionSet",
+            id: "collapse-actions",
+            isVisible: false,
+            actions: [
+              {
+                type: "Action.ToggleVisibility",
+                title: "收起",
+                targetElements: [
+                  "preview",
+                  "full",
+                  "expand-actions",
+                  "collapse-actions",
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      target,
+      onAction: () => {},
+    });
+
+    const controls = Array.from(
+      target.querySelectorAll<HTMLElement>("[aria-controls]")
+    );
+    expect(controls).toHaveLength(2);
+    expect(
+      controls.map((button) => button.getAttribute("aria-expanded"))
+    ).toEqual(["false", "false"]);
+
+    controls[0].click();
+    await Promise.resolve();
+    expect(
+      controls.map((button) => button.getAttribute("aria-expanded"))
+    ).toEqual(["true", "true"]);
+
+    controls[1].click();
+    await Promise.resolve();
+    expect(
+      controls.map((button) => button.getAttribute("aria-expanded"))
+    ).toEqual(["false", "false"]);
     target.remove();
   });
 

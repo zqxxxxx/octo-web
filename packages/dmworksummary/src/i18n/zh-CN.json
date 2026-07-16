@@ -24,6 +24,11 @@
     "current": "当前",
     "userFallback": "用户 {{id}}"
   },
+  "deepLink": {
+    "invalidTitle": "无法打开这条总结",
+    "invalidDescription": "链接无效或已损坏，请返回 Octo 后从智能总结列表重新进入。",
+    "backHome": "返回 Octo"
+  },
   "action": {
     "accept": "同意",
     "accepted": "已同意",

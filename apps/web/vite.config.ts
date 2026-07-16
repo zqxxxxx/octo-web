@@ -147,13 +147,14 @@ export default defineConfig(({ mode }) => {
             ? (path: string) => path.replace(/^\/matter/, "")
             : undefined,
         },
-        // Loop (fleet) service API — 真实 multica-server/fleet 联调。
-        // dev fleet 在 127.0.0.1:8091 直接提供完整 /fleet/api/v1/... 路径（不 strip）。
-        // 必须放在下面通用 /fleet/api/ 规则之前（vite first-match）。
-        "/fleet/api/v1": {
-          target: env.VITE_FLEET_API_URL || "http://127.0.0.1:8091",
+        // Loop API 由 octo-multica 提供，其真实路由是未版本化的 /api/*。
+        // 浏览器使用独立的 /loop/api/* 同源前缀，避免请求落到
+        // octo-fleet 占用的 /fleet/api/*。
+        "/loop/api": {
+          target: env.VITE_LOOP_API_URL || "http://127.0.0.1:8091",
           changeOrigin: true,
           secure: false,
+          rewrite: (path: string) => path.replace(/^\/loop/, ""),
         },
         // fleet 经 /fleet/api 段挂载 (fleet api.go A.1: `fleet/api` segment 由
         // nginx 添加并 strip 转 fleet /v1)。一条规则覆盖所有 fleet 端点,

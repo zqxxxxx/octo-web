@@ -1,12 +1,13 @@
 // @octo/loop — HTTP 客户端（后端契约联调）
-// 所有请求走 /fleet/api/v1（Vite dev proxy → http://127.0.0.1:8091），路径与 后端契约一致。
+// 所有请求走 Loop 独立的同源前缀 /loop/api。开发和生产代理均将它
+// 改写为 octo-multica 实际提供的 /api/*，避免与 octo-fleet 的 /fleet/api/* 混用。
 // workspace 相关接口统一携带 header `x-workspace-slug`（值取自顶部 workspace 下拉当前 slug）。
 import axios from "axios";
 import { WKApp } from "@octo/base";
 
 export const LOOP_API_BASE =
   (import.meta as { env?: Record<string, string> }).env?.VITE_LOOP_API_BASE ||
-  "/fleet/api/v1";
+  "/loop/api";
 
 const client = axios.create({ baseURL: LOOP_API_BASE, withCredentials: true });
 
@@ -117,7 +118,8 @@ export async function httpGet<T>(
 // native element request cannot carry the `token` / `X-Space-Id` headers this
 // client injects, and under octo-web the document origin proxies `/api/*` to a
 // different backend than the loop API, so a raw `download_url` src 404s. Going
-// through the client (which rewrites to the loop backend and injects auth) and
+// through the client (which the /loop/api proxy rewrites to the Multica backend
+// and which injects auth) and
 // handing the caller a Blob to wrap in an object URL fixes both.
 export async function httpGetBlob(path: string): Promise<Blob> {
   try {

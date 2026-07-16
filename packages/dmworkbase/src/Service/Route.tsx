@@ -6,11 +6,11 @@ import { getSid } from "../Utils/search";
 
 export default class RouteManager {
   private handlePopState = () => {
-    RouteManager.shared.push(window.location.pathname)
+    RouteManager.shared.push(window.location.pathname + window.location.search)
   }
 
   private handlePageShow = () => {
-    RouteManager.shared.push(window.location.pathname)
+    RouteManager.shared.push(window.location.pathname + window.location.search)
   }
 
   private constructor() {
@@ -39,11 +39,18 @@ export default class RouteManager {
   }
 
   push(path: string, param?: any) {
-    this.currentPath = path
-    const component = EndpointManager.shared.invoke(`${EndpointID.routePrefix}${path}`, param)
+    const requestedURL = new URL(path, window.location.origin)
+    const routePath = requestedURL.pathname
+    this.currentPath = routePath
+    const component = EndpointManager.shared.invoke(`${EndpointID.routePrefix}${routePath}`, param)
     if (component) {
       let sid = getSid()
-      const url = new URL(path, window.location.origin)
+      // Keep product deep-link parameters during the initial pageshow/popstate
+      // dispatch. Consumers such as Loop capture them during route creation and
+      // Layout needs the same tuple to persist an external-login return target.
+      // Menu navigation still passes a query-free path, so its behaviour is
+      // unchanged.
+      const url = requestedURL
       url.searchParams.set('sid', sid)
       window.history.pushState({}, "title", url.pathname + url.search)
       WKApp.shared.restContent(component)

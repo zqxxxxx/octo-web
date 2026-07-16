@@ -2,6 +2,7 @@ import React from "react";
 import { WKApp, Menus, i18n, t as translate } from "@octo/base";
 import type { IModule } from "@octo/base";
 import LoopPage from "./pages/LoopPage";
+import { parseLoopDeepLink } from "./pages/loopDeepLink";
 import LoopCliAuthorizePage from "./pages/LoopCliAuthorizePage";
 import {
   isLoopCliAuthorizePath,
@@ -87,7 +88,16 @@ export default class LoopModule implements IModule {
       }
     }
 
-    WKApp.route.register("/loop", () => <LoopPage />);
+    WKApp.route.register("/loop", () => {
+      const deepLink =
+        typeof window === "undefined"
+          ? { kind: "none" as const }
+          : parseLoopDeepLink(window.location.search);
+      if (deepLink.kind === "valid") {
+        WKApp.shared.currentSpaceId = deepLink.spaceId;
+      }
+      return <LoopPage initialDeepLink={deepLink} />;
+    });
     const renderLoopCliAuthorize = () => (
       <LoopCliAuthorizePage
         initialSearch={loopCliAuthorizeInitialSearch}

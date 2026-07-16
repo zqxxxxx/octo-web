@@ -1,4 +1,4 @@
-// @octo/loop — Autopilot API（自动化，对接自动化后端契约，base = /fleet/api/v1）
+// @octo/loop — Autopilot API（自动化，对接自动化后端契约，base = /loop/api）
 import type {
   Autopilot,
   AutopilotTrigger,
